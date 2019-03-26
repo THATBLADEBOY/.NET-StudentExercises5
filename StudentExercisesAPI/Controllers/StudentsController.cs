@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using StudentExercisesAPI.Models;
 
 namespace StudentExercisesAPI.Controllers
 {
@@ -11,36 +13,156 @@ namespace StudentExercisesAPI.Controllers
     [ApiController]
     public class StudentsController : ControllerBase
     {
+        public SqlConnection Connection
+        {
+            get
+            {
+                string connectionSTring = "Server=localhost\\SQLExpress;Database=StudentExercises;Integrated Security=true";
+                return new SqlConnection(connectionSTring);
+            }
+        }
+
         // GET: api/Students
         [HttpGet]
-        public IEnumerable<string> Get()
+        public IEnumerable<Student> Get()
         {
-            return new string[] { "value1", "value2" };
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"SELECT s.id, s.firstname, s.lastname, s.slack, s.cohortId, c.name as cohortname
+                                        FROM Student s INNER JOIN Cohort c ON s.cohortId = c.id";
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    List<Student> students = new List<Student>();
+                    while (reader.Read())
+                    {
+                        Student student = new Student
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("id")),
+                            FirstName = reader.GetString(reader.GetOrdinal("firstname")),
+                            LastName = reader.GetString(reader.GetOrdinal("lastname")),
+                            Slack = reader.GetString(reader.GetOrdinal("slack")),
+                            CohortId = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                            Cohort = new Cohort
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                                Name = reader.GetString(reader.GetOrdinal("cohortname"))
+                            }
+                        };
+                        students.Add(student);
+                    }
+                    reader.Close();
+                    return students;
+                }
+            }
         }
 
         // GET: api/Students/5
         [HttpGet("{id}", Name = "GetStudent")]
-        public string Get(int id)
+        public Student Get(int id)
         {
-            return "value";
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"SELECT s.id, s.firstname, s.lastname,
+                                s.slack, s.cohortId, c.name as cohortname
+                                FROM Student s INNER JOIN Cohort c ON s.cohortID = c.id
+                                WHERE s.id = @id";
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    Student student = null;
+                    if (reader.Read())
+                    {
+                        student = new Student
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("id")),
+                            FirstName = reader.GetString(reader.GetOrdinal("firstname")),
+                            LastName = reader.GetString(reader.GetOrdinal("lastname")),
+                            Slack = reader.GetString(reader.GetOrdinal("slack")),
+                            CohortId = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                            Cohort = new Cohort
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                                Name = reader.GetString(reader.GetOrdinal("cohortname"))
+                            }
+                        };
+                    }
+                    reader.Close();
+                    return student;
+                }
+            }
         }
 
         // POST: api/Students
         [HttpPost]
-        public void Post([FromBody] string value)
+        public ActionResult Post([FromBody] Student newStudent)
         {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"INSERT INTO student (firstname, lastname, slack, cohortid)
+                                    OUTPUT INSERTED.Id
+                                    VALUES (@firstname, @lastname, @slack, @cohortid)";
+                    cmd.Parameters.Add(new SqlParameter("@firstname", newStudent.FirstName));
+                    cmd.Parameters.Add(new SqlParameter("@lastname", newStudent.LastName));
+                    cmd.Parameters.Add(new SqlParameter("@slack", newStudent.Slack));
+                    cmd.Parameters.Add(new SqlParameter("@cohortid", newStudent.CohortId));
+
+                    int newId = (int)cmd.ExecuteScalar();
+                    newStudent.Id = newId;
+                    return CreatedAtRoute("GetInstructor", new { id = newId }, newStudent);
+                }
+            }
         }
 
         // PUT: api/Students/5
         [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
+        public void Put(int id, [FromBody] Student student)
         {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"UPDATE student 
+                                           SET firstname = @firstname, 
+                                               lastname = @lastname,
+                                               slack = @slack, 
+                                               cohortid = @cohortid
+                                         WHERE id = @id;";
+                    cmd.Parameters.Add(new SqlParameter("@firstname", student.FirstName));
+                    cmd.Parameters.Add(new SqlParameter("@lastname", student.LastName));
+                    cmd.Parameters.Add(new SqlParameter("@slack", student.Slack));
+                    cmd.Parameters.Add(new SqlParameter("@cohortid", student.CohortId));
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
 
         // DELETE: api/ApiWithActions/5
         [HttpDelete("{id}")]
         public void Delete(int id)
         {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "DELETE FROM student WHERE id = @id;";
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+
+                    cmd.ExecuteNonQuery();
+                }
+            }
         }
     }
 }
