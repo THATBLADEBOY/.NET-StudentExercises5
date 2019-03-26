@@ -24,37 +24,91 @@ namespace StudentExercisesAPI.Controllers
 
         // GET: api/Students
         [HttpGet]
-        public IEnumerable<Student> Get()
+        public List<Student> Get(string include)
         {
             using (SqlConnection conn = Connection)
             {
                 conn.Open();
                 using (SqlCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = @"SELECT s.id, s.firstname, s.lastname, s.slack, s.cohortId, c.name as cohortname
-                                        FROM Student s INNER JOIN Cohort c ON s.cohortId = c.id";
-                    SqlDataReader reader = cmd.ExecuteReader();
-
-                    List<Student> students = new List<Student>();
-                    while (reader.Read())
+                    if (include == "exercise")
                     {
-                        Student student = new Student
+                        cmd.CommandText = @"SELECT s.ID as StudentId, s.FirstName as StudentFirstName, s.LastName as StudentLastName,
+                                            s.Slack as StudentSlack, s.CohortId as StudentCohortId, e.[Name] as ExerciseName, e.Id as ExerciseId,
+                                            e.Language as ExerciseLanguage c.name as cohortname, c.Id as cohortId
+                                           FROM Student s INNER JOIN StudentExercise se ON s.Id = se.Student
+                                           INNER JOIN Exercise e ON se.Exercise = e.Id
+                                            INNER JOIN Cohort c ON s.cohortId = c.id";
+
+                        SqlDataReader reader = cmd.ExecuteReader();
+                        Dictionary<int, Student> students = new Dictionary<int, Student>();
+                        while (reader.Read())
                         {
-                            Id = reader.GetInt32(reader.GetOrdinal("id")),
-                            FirstName = reader.GetString(reader.GetOrdinal("firstname")),
-                            LastName = reader.GetString(reader.GetOrdinal("lastname")),
-                            Slack = reader.GetString(reader.GetOrdinal("slack")),
-                            CohortId = reader.GetInt32(reader.GetOrdinal("cohortId")),
-                            Cohort = new Cohort
+                            int studentId = reader.GetInt32(reader.GetOrdinal("StudentId"));
+                            if (!students.ContainsKey(studentId))
                             {
-                                Id = reader.GetInt32(reader.GetOrdinal("cohortId")),
-                                Name = reader.GetString(reader.GetOrdinal("cohortname"))
+                                Student newStudent = new Student
+                                {
+                                    Id = studentId,
+                                    FirstName = reader.GetString(reader.GetOrdinal("StudentFirstName")),
+                                    LastName = reader.GetString(reader.GetOrdinal("StudentLastName")),
+                                    CohortId = reader.GetInt32(reader.GetOrdinal("StudentCohortId")),
+                                    Slack = reader.GetString(reader.GetOrdinal("StudentSlack")),
+                                    Cohort = new Cohort
+                                    {
+                                        Id = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                                        Name = reader.GetString(reader.GetOrdinal("cohortname"))
+                                    }
+                                };
+                                students.Add(studentId, newStudent);
                             }
-                        };
-                        students.Add(student);
+                            if (!reader.IsDBNull(reader.GetOrdinal("ExerciseId")))
+                            {
+                                Student currentStudent = students[studentId];
+                                currentStudent.Exercises.Add(
+                                    new Exercise
+                                    {
+                                        Id = reader.GetInt32(reader.GetOrdinal("StudentId")),
+                                        Name = reader.GetString(reader.GetOrdinal("ExerciseName")),
+                                        Language = reader.GetString(reader.GetOrdinal("ExerciseLanguage"))
+                                    }
+                                );
+                            }
+                            
+
+                        }
+                        reader.Close();
+                        return students.Values.ToList(); ;
                     }
-                    reader.Close();
-                    return students;
+                    else
+                    {
+
+                        cmd.CommandText = @"SELECT s.id, s.firstname, s.lastname, s.slack, s.cohortId, c.name as cohortname
+                                        FROM Student s INNER JOIN Cohort c ON s.cohortId = c.id";
+                   
+                        SqlDataReader reader = cmd.ExecuteReader();
+
+                        List<Student> students = new List<Student>();
+                        while (reader.Read())
+                        {
+                            Student student = new Student
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("id")),
+                                FirstName = reader.GetString(reader.GetOrdinal("firstname")),
+                                LastName = reader.GetString(reader.GetOrdinal("lastname")),
+                                Slack = reader.GetString(reader.GetOrdinal("slack")),
+                                CohortId = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                                Cohort = new Cohort
+                                {
+                                    Id = reader.GetInt32(reader.GetOrdinal("cohortId")),
+                                    Name = reader.GetString(reader.GetOrdinal("cohortname"))
+                                }
+                            };
+                            students.Add(student);
+                        }
+                        reader.Close();
+                        return students;
+                    }
                 }
             }
         }
