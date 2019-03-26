@@ -24,7 +24,7 @@ namespace StudentExercisesAPI.Controllers
 
         // GET: api/Exercises
         [HttpGet]
-        public List<Exercise> Get(string include)
+        public List<Exercise> Get(string include, string q)
         {
             using (SqlConnection conn = Connection)
             {
@@ -38,8 +38,9 @@ namespace StudentExercisesAPI.Controllers
                                             e.Language as ExerciseLanguage, c.name as cohortname, c.Id as cohortId, se.Student as StudentExStudent
                                            FROM Student s INNER JOIN StudentExercise se ON s.Id = se.Student
                                            INNER JOIN Exercise e ON se.Exercise = e.Id
-                                            INNER JOIN Cohort c ON s.cohortId = c.id";
-
+                                            INNER JOIN Cohort c ON s.cohortId = c.id
+                                            WHERE @q LIKE e.[Name] OR @q LIKE e.language";
+                        cmd.Parameters.Add(new SqlParameter("@q", q));
                         SqlDataReader reader = cmd.ExecuteReader();
                         Dictionary<int, Exercise> exercises = new Dictionary<int, Exercise>();
                         while (reader.Read())
@@ -84,8 +85,10 @@ namespace StudentExercisesAPI.Controllers
                     {
 
                         cmd.CommandText = @"SELECT e.id as ExerciseId, e.name as ExerciseName, e.language as ExerciseLanguage
-                                        FROM Exercise e";
+                                        FROM Exercise e
+                                        WHERE @q LIKE e.[Name] OR @q LIKE e.language";
 
+                        cmd.Parameters.Add(new SqlParameter("@q", q)); 
                         SqlDataReader reader = cmd.ExecuteReader();
 
                         List<Exercise> exercises = new List<Exercise>();

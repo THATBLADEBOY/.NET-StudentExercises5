@@ -24,7 +24,7 @@ namespace StudentExercisesAPI.Controllers
 
         // GET: api/Students
         [HttpGet]
-        public List<Student> Get(string include)
+        public List<Student> Get(string include, string q)
         {
             using (SqlConnection conn = Connection)
             {
@@ -35,11 +35,12 @@ namespace StudentExercisesAPI.Controllers
                     {
                         cmd.CommandText = @"SELECT s.ID as StudentId, s.FirstName as StudentFirstName, s.LastName as StudentLastName,
                                             s.Slack as StudentSlack, s.CohortId as StudentCohortId, e.[Name] as ExerciseName, e.Id as ExerciseId,
-                                            e.Language as ExerciseLanguage c.name as cohortname, c.Id as cohortId
+                                            e.Language as ExerciseLanguage, c.name as cohortname, c.Id as cohortId
                                            FROM Student s INNER JOIN StudentExercise se ON s.Id = se.Student
                                            INNER JOIN Exercise e ON se.Exercise = e.Id
-                                            INNER JOIN Cohort c ON s.cohortId = c.id";
-
+                                            INNER JOIN Cohort c ON s.cohortId = c.id
+                                            WHERE s.FirstName LIKE @q OR s.lastname LIKE @q OR s.slack LIKE @q"; 
+                        cmd.Parameters.Add(new SqlParameter("@q", q));
                         SqlDataReader reader = cmd.ExecuteReader();
                         Dictionary<int, Student> students = new Dictionary<int, Student>();
                         while (reader.Read())
@@ -84,8 +85,9 @@ namespace StudentExercisesAPI.Controllers
                     {
 
                         cmd.CommandText = @"SELECT s.id, s.firstname, s.lastname, s.slack, s.cohortId, c.name as cohortname
-                                        FROM Student s INNER JOIN Cohort c ON s.cohortId = c.id";
-                   
+                                        FROM Student s INNER JOIN Cohort c ON s.cohortId = c.id
+                                        WHERE s.FirstName LIKE @q OR s.lastname LIKE @q OR s.slack LIKE @q";
+                        cmd.Parameters.Add(new SqlParameter("@q", q));
                         SqlDataReader reader = cmd.ExecuteReader();
 
                         List<Student> students = new List<Student>();

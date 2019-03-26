@@ -24,7 +24,7 @@ namespace StudentExercisesAPI.Controllers
 
         // GET: api/Cohorts
         [HttpGet]
-        public List<Cohort> GetAllCohorts()
+        public List<Cohort> GetAllCohorts(string q)
         {
             using (SqlConnection conn = Connection)
             {
@@ -35,7 +35,9 @@ namespace StudentExercisesAPI.Controllers
                                         s.LastName as StudentLastName, s.Slack as StudentSlack, i.Id as InstructorId, i.FirstName as InstructorFirstName,
                                         i.LastName as InstructorLastName, i.Slack as InstructorSlack
                                         FROM Cohort c LEFT JOIN Student s ON s.CohortId = c.Id 
-                                        LEFT JOIN Instructor i ON i.CohortId = c.Id";
+                                        LEFT JOIN Instructor i ON i.CohortId = c.Id
+                                        WHERE c.[name] LIKE @q";
+                    cmd.Parameters.Add(new SqlParameter("@q", q));
                     SqlDataReader reader = cmd.ExecuteReader();
                     Dictionary<int, Cohort> cohorts = new Dictionary<int, Cohort>();
                     while (reader.Read())
